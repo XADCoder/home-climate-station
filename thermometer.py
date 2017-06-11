@@ -3,150 +3,133 @@
 ### CPUTemp class is from https://github.com/martinohanlon/CPUTemp.git 
 
 from sense_hat import SenseHat
+from time import sleep
 import math
 
 class CPUTemp:
-    def __init__(self, tempfilename = "/sys/class/thermal/thermal_zone0/temp"):
-        self.tempfilename = tempfilename
+	SENSEHAT_WIDTH = 8
 
-    def __enter__(self):
-        self.open()
-        return self
+	def __init__(self, tempfilename = "/sys/class/thermal/thermal_zone0/temp"):
+		self.tempfilename = tempfilename
 
-    def open(self):
-        self.tempfile = open(self.tempfilename, "r")
-    
-    def read(self):
-        self.tempfile.seek(0)
-        return self.tempfile.read().rstrip()
+	def __enter__(self):
+		self.open()
+		return self
 
-    def get_temperature(self):
-        return self.get_temperature_in_c()
+	def open(self):
+		self.tempfile = open(self.tempfilename, "r")
 
-    def get_temperature_in_c(self):
-        tempraw = self.read()
-        return float(tempraw[:-3] + "." + tempraw[-3:])
+	def read(self):
+		self.tempfile.seek(0)
+		return self.tempfile.read().rstrip()
 
-    def get_temperature_in_f(self):
-        return self.convert_c_to_f(self.get_temperature_in_c())
-    
-    def convert_c_to_f(self, c):
-        return c * 9.0 / 5.0 + 32.0
+	def get_temperature(self):
+		return self.get_temperature_in_c()
 
-    def __exit__(self, type, value, traceback):
-        self.close()
-            
-    def close(self):
-        self.tempfile.close()
+	def get_temperature_in_c(self):
+		tempraw = self.read()
+		return float(tempraw[:-3] + "." + tempraw[-3:])
 
-#Initialize SenseHat
-sense = SenseHat()
+	def get_temperature_in_f(self):
+		return self.convert_c_to_f(self.get_temperature_in_c())
 
-#Algorithm to adjust impact of the CPU temp on the temperature sensor readings
-#Code snippet from https://github.com/astro-pi/watchdog
+	def convert_c_to_f(self, c):
+		return c * 9.0 / 5.0 + 32.0
 
-# CALCULATIONS FOR TEMPERATURE TO COMPENSATE FOR CPU_TEMP AFFECTING TEMPERATURE READINGS
-  
-t = sense.get_temperature()
-p = sense.get_temperature_from_pressure()
-h = sense.get_temperature_from_humidity()
-with CPUTemp() as cpu_temp:
-    c = cpu_temp.get_temperature()
-print(p)
-print(t)
-print(h)
-print(c/5)
-temp = ((t+p+h)/3) - (c/5)
-print(temp)
-# CALCULATION FOR CORRECTING FOR THE CPU TEMPERATURE AFFECT ON TEMPERATURE SENSORS
-# VERIFIED AGAINST A STANDALONE TEMPERATURE GAUGE FOR RASPBERRYPI B+ 
+	def __exit__(self, type, value, traceback):
+		self.close()
 
-#Color code the display based on temperature range
-if temp >= 40:
-    X = [255, 0, 0]
-elif temp >= 30:
-    X = [255, 128, 0]
-elif temp >= 20:
-    X = [255, 255, 0]
-elif temp >= 10:
-    X = [0, 255, 0]
-elif temp >= 0:
-    X = [0, 255, 128]
-elif temp >= -10:
-    X = [0, 255, 255]
-elif temp >= -20:
-    X = [0, 191, 255]
-elif temp >= -30:
-    X = [0, 127, 255]
-elif temp >= -40:
-    X = [0, 64, 255]
-else:
-    X = [0, 0, 255]
+	def close(self):
+		self.tempfile.close()
 
-O = [0, 0, 0] #Blue Background color
+	def calc_real_temp(self, sense):
+		#Initialize SenseHat
 
-#Set LED Display to blank by filling array with 64 O characters
-#Maybe change this to black color if foreground changes
-ledDisplay = []
-for i in range(64):
-	ledDisplay.append(O)
+		#Algorithm to adjust impact of the CPU temp on the temperature sensor readings
+		#Code snippet from https://github.com/astro-pi/watchdog
 
-#Convert numbers to pixel representations starting with 0
+		# CALCULATIoNS FoR TEMPERATURE To CoMPENSATE FoR CPU_TEMP AFFECTING TEMPERATURE READINGS
+		t = sense.get_temperature()
+		p = sense.get_temperature_from_pressure()
+		h = sense.get_temperature_from_humidity()
+		with CPUTemp() as cpu_temp:
+			c = cpu_temp.get_temperature()
+		print("temp from pressure -> ", p)
+		print("temp from humidity -> ",h)
+		temp = ((t+p+h)/3) - (c/5)
+		print(temp)
+		return temp
 
-digitBits = (X,X,X,X,X,O,O,X,X,O,O,X,X,O,O,X,X,O,O,X,X,O,O,X,X,O,O,X,X,X,X,X,
-O,O,X,O,O,O,X,O,O,O,X,O,O,O,X,O,O,O,X,O,O,O,X,O,O,O,X,O,O,O,X,O,
-X,X,X,X,O,O,O,X,O,O,O,X,O,O,O,X,X,X,X,X,X,O,O,O,X,O,O,O,X,X,X,X,
-X,X,X,X,O,O,O,X,O,O,O,X,O,O,O,X,X,X,X,X,O,O,O,X,O,O,O,X,X,X,X,X,
-X,O,O,X,X,O,O,X,X,O,O,X,X,O,O,X,X,X,X,X,O,O,O,X,O,O,O,X,O,O,O,X,
-X,X,X,X,X,O,O,O,X,O,O,O,X,O,O,O,X,X,X,X,O,O,O,X,O,O,O,X,X,X,X,X,
-X,O,O,O,X,O,O,O,X,O,O,O,X,O,O,O,X,X,X,X,X,O,O,X,X,O,O,X,X,X,X,X,
-X,X,X,X,O,O,O,X,O,O,O,X,O,O,O,X,O,O,O,X,O,O,O,X,O,O,O,X,O,O,O,X,
-X,X,X,X,X,O,O,X,X,O,O,X,X,O,O,X,X,X,X,X,X,O,O,X,X,O,O,X,X,X,X,X,
-X,X,X,X,X,O,O,X,X,O,O,X,X,O,O,X,X,X,X,X,O,O,O,X,O,O,O,X,O,O,O,X)
+	# CALCULATIoN FoR CoRRECTING FoR THE CPU TEMPERATURE AFFECT oN TEMPERATURE SENSoRS
+	# VERIFIED AGAINST A STANDALoNE TEMPERATURE GAUGE FoR RASPBERRYPI B+
+	def color_gen(self, temp):
+		# temp = self.calc_real_temp(sense)
+		#Color code the display based on temperature range
+		if temp >= 40:
+			x = [255, 0, 0]
+		elif temp >= 30:
+			x = [255, 128, 0]
+		elif temp >= 20:
+			x = [255, 255, 0]
+		elif temp >= 10:
+			x = [0, 255, 0]
+		elif temp >= 0:
+			x = [0, 255, 128]
+		elif temp >= -10:
+			x = [0, 255, 255]
+		elif temp >= -20:
+			x = [0, 191, 255]
+		elif temp >= -30:
+			x = [0, 127, 255]
+		elif temp >= -40:
+			x = [0, 64, 255]
+		else:
+			x = [0, 0, 255]
+		return x
 
-#Since the display is only big enough for two digits, an exception is made for anything over 99 though it almost certainly would never happen unless converted to Fahrenheit
-#If the temp does hit +/- 100 then it will blank out the display given that it still works
-if abs(temp) >= 100:
-    ledDisplay = []
-    for i in range(64):
-	    ledDisplay.append(X)
-else:
-    #Start building the display array
-    #Iterates each digit across the row and then down the column
-    index = 0
-    digitIndex = 0
-    for rowLoop in range(8):
-            for columnLoop in range(4):
-                    #Number 1 starts at position 32. Zero is 0 - 31, so multiply by 32
-                    ledDisplay[index] = digitBits[int(abs(temp)/10)*32 + digitIndex] #First digit
-                    ledDisplay[index+4] = digitBits[int(abs(temp)%10)*32 + digitIndex] #Second digit
-                    index = index + 1
-                    digitIndex = digitIndex + 1
-            index = index + 4 #Move to the next row
+	def display_temp(self, sense):
+		# sense.clear()
+		temp = self.calc_real_temp(sense)
+		x = self.color_gen(temp)
+		if abs(temp) <= 31:
+			#int part
+			temp_in_bin = "{0:b}".format(int(temp))
+			for index, val in enumerate(temp_in_bin):
+				if val == "1":
+					sense.set_pixel(index, 0, x)
+			#get decimal part
+			decimal = "{0:b}".format(int(math.modf(temp)[0]*10))
+			if len(decimal) < 2:
+				decimal = "00".join(decimal)
+			elif len(decimal) < 3:
+				decimal = "0".join(decimal)
+			elif len(decimal) > 3:
+				decimal = "111"
+			print(temp, "--", decimal)
+			for index, val in enumerate(decimal):
+				if val == "1":
+					sense.set_pixel(index+5, 0, 0, 0, 255)
+		else:
+			error_color = (255, 255, 255)
+			for i in range (0, self.SENSEHAT_WIDTH):
+				sense.set_pixel(i, 0, error_color)
 
-#Send the created array to the LED Display
-#sense.set_pixels(ledDisplay)
+	def clear_temp_row(self, sense):
+		for i in range (0, self.SENSEHAT_WIDTH):
+			sense.set_pixel(i, 0, 0, 0, 0)
 
-sense.clear()
-sense.rotation = 180
-sense.low_light = True
-if abs(temp) <= 31:
-    #int part
-    temp_in_bin = "{0:b}".format(int(temp))
-    for index, val in enumerate(temp_in_bin):
-        if val == "1":
-            sense.set_pixel(index, 0, X)
-    #get decimal part
-    decimal = "{0:b}".format(int(math.modf(temp)[0]*10))
-    if len(decimal) < 2:
-        decimal = "00".join(decimal)
-    elif len(decimal) < 3:
-        decimal = "0".join(decimal)
-    elif len(decimal) > 3:
-        decimal = "111"
-    print(temp, "--", decimal)
-    for index, val in enumerate(decimal):
-        if val == "1":
-            sense.set_pixel(index+5, 0, 0, 0, 255)
-
-
+	def start_climate_station(self, interval=60, nightly=False, rotation=0):
+		"""
+		:param interval: refresh rate of checking temperature
+		:param nightly: dim the light if value is true
+		:param rotation: rotate the Sense Hat LED to fit proper direction
+		:return: no return value. Start the climate station in daemon mode.
+		"""
+		sense = SenseHat()
+		# sense.clear()
+		sense.rotation = rotation
+		sense.low_light = nightly
+		while True:
+			self.clear_temp_row(sense)
+			self.display_temp(sense)
+			sleep(interval)
